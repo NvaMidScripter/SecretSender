@@ -3,45 +3,267 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Поделиться секретом</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Создать секрет</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+        .hidden {
+            display: none;
+        }
+        h1, h2 {
+            color: #1c1e21;
+        }
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            border: 1px solid #dddfe2;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+        button {
+            background-color: #1877f2;
+            color: #fff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #166fe5;
+        }
+        .secret-box {
+            background-color: #f5f5f5;
+            border: 1px dashed #ccc;
+            padding: 20px;
+            margin-top: 15px;
+            border-radius: 6px;
+            word-wrap: break-word;
+            text-align: left;
+            min-height: 50px;
+        }
+        #copy-secret-btn, #copy-link-btn {
+            background-color: #42b72a;
+        }
+        #copy-secret-btn:hover, #copy-link-btn:hover {
+            background-color: #36a420;
+        }
+    </style>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
-    <div class="container">
-        <div id="choice-section">
-            <button id="share-login-btn">Поделиться логином и паролем</button>
-            <button id="share-text-btn">Поделиться текстом</button>
-            <button id="share-file-btn">Поделиться файлом/изображением</button>
-        </div>
-
-        <div id="login-section" class="hidden">
-            <h2>Логин и пароль</h2>
-            <input type="text" id="login-input" placeholder="Логин">
-            <input type="password" id="password-input" placeholder="Пароль">
-            <button id="toggle-blur-btn">Показать/Скрыть пароль</button>
-            <button id="send-login-btn">Создать ссылку</button>
-        </div>
-
-        <div id="text-section" class="hidden">
-            <h2>Текст</h2>
-            <textarea id="text-input" rows="6" placeholder="Введите текст..."></textarea>
-            <button id="send-text-btn">Создать ссылку</button>
-        </div>
-
-        <div id="file-section" class="hidden">
-            <h2>Файл или изображение</h2>
-            <input type="file" id="file-input" accept=".txt,image/*">
-            <button id="send-file-btn">Создать ссылку</button>
+    <div class="container" id="container">
+        <div id="create-section">
+            <h1>Создать секретную записку</h1>
+            <p>Информация будет зашифрована и удалена сразу после первого прочтения.</p>
+            <textarea id="secret-text" rows="8" placeholder="Введите ваш секретный текст, логин или пароль..."></textarea>
+            <button id="create-btn">Создать одноразовую ссылку</button>
         </div>
 
         <div id="link-section" class="hidden">
-            <h2>Ваша ссылка готова!</h2>
+            <h2>Ваша одноразовая ссылка готова!</h2>
+            <p>Отправьте её получателю. Ссылка сработает только один раз.</p>
             <input type="text" id="generated-link" readonly>
             <button id="copy-link-btn">Копировать ссылку</button>
         </div>
+
+        <div id="reveal-section" class="hidden">
+            <h1>Секретная записка</h1>
+            <p>Эта записка будет уничтожена после того, как вы закроете страницу.</p>
+            <div id="revealed-secret" class="secret-box">
+                <span id="loading-text">Загрузка секрета...</span>
+            </div>
+            <button id="copy-secret-btn" class="hidden">Копировать секрет</button>
+        </div>
     </div>
-    <script src="script.js"></script>
+
+    <script>
+        // ШАГ 1: ВСТАВЬ СЮДА СВОЙ firebaseConfig
+        const firebaseConfig = {
+          apiKey: "AIzaSyCEqR8Y8WTLUaWigvR-UBMkZRNVvIDduW4",
+          authDomain: "telebot-8e973.firebaseapp.com",
+          databaseURL: "https://telebot-8e973-default-rtdb.europe-west1.firebasedatabase.app",
+          projectId: "telebot-8e973",
+          storageBucket: "telebot-8e973.firebasestorage.app",
+          messagingSenderId: "1002874784964",
+          appId: "1:1002874784964:web:35472827e22700f606cd91"
+        };
+
+        // Инициализация Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Получаем элементы со страницы
+        const createSection = document.getElementById('create-section');
+        const linkSection = document.getElementById('link-section');
+        const revealSection = document.getElementById('reveal-section');
+
+        const secretTextInput = document.getElementById('secret-text');
+        const createBtn = document.getElementById('create-btn');
+        const generatedLinkInput = document.getElementById('generated-link');
+        const copyLinkBtn = document.getElementById('copy-link-btn');
+        const revealedSecretDiv = document.getElementById('revealed-secret');
+        const loadingText = document.getElementById('loading-text');
+        const copySecretBtn = document.getElementById('copy-secret-btn');
+
+        // --- ЛОГИКА ШИФРОВАНИЯ ---
+        // Преобразование ArrayBuffer в строку Base64 и обратно
+        const bufferToBase64 = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)));
+        const base64ToBuffer = (base64) => Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+
+        async function encryptData(secretText, key) {
+            const iv = crypto.getRandomValues(new Uint8Array(12)); // Initialization Vector
+            const encodedText = new TextEncoder().encode(secretText);
+            const encryptedData = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv: iv },
+                key,
+                encodedText
+            );
+            return {
+                iv: bufferToBase64(iv),
+                encrypted: bufferToBase64(encryptedData)
+            };
+        }
+
+        async function decryptData(encryptedPayload, key) {
+            const iv = base64ToBuffer(encryptedPayload.iv);
+            const encryptedData = base64ToBuffer(encryptedPayload.encrypted);
+            const decryptedData = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: iv },
+                key,
+                encryptedData
+            );
+            return new TextDecoder().decode(decryptedData);
+        }
+
+        // --- ОСНОВНАЯ ЛОГИКА ПРИЛОЖЕНИЯ ---
+
+        // Функция создания секрета
+        async function handleCreateSecret() {
+            const secretText = secretTextInput.value;
+            if (!secretText.trim()) {
+                alert('Пожалуйста, введите текст секрета.');
+                return;
+            }
+
+            createBtn.disabled = true;
+            createBtn.textContent = 'Создание...';
+
+            try {
+                // 1. Генерируем ключ шифрования
+                const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+
+                // 2. Шифруем данные
+                const encryptedPayload = await encryptData(secretText, key);
+
+                // 3. Сохраняем зашифрованные данные в Firebase
+                const secretRef = await database.ref('secrets').push(encryptedPayload);
+                const secretId = secretRef.key;
+
+                // 4. Генерируем финальную ссылку с ключом в "якоре" (#)
+                const keyExported = await crypto.subtle.exportKey('raw', key);
+                const keyBase64 = bufferToBase64(keyExported);
+                const currentUrl = window.location.href.split('#')[0];
+                const finalUrl = `${currentUrl}?id=${secretId}#${keyBase64}`;
+
+                // 5. Показываем ссылку пользователю
+                generatedLinkInput.value = finalUrl;
+                createSection.classList.add('hidden');
+                linkSection.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Ошибка при создании секрета:", error);
+                alert('Произошла ошибка. Попробуйте снова.');
+            } finally {
+                createBtn.disabled = false;
+                createBtn.textContent = 'Создать одноразовую ссылку';
+            }
+        }
+
+        // Функция отображения секрета
+        async function handleRevealSecret() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const secretId = urlParams.get('id');
+            const keyBase64 = window.location.hash.substring(1);
+
+            if (!secretId || !keyBase64) return; // Не страница секрета, ничего не делаем
+
+            // Показываем секцию для отображения секрета
+            createSection.classList.add('hidden');
+            revealSection.classList.remove('hidden');
+
+            try {
+                // 1. Получаем зашифрованные данные из Firebase
+                const snapshot = await database.ref(`secrets/${secretId}`).get();
+                if (!snapshot.exists()) {
+                    revealedSecretDiv.textContent = 'Этот секрет уже был прочитан или не существует.';
+                    return;
+                }
+                const encryptedPayload = snapshot.val();
+
+                // 2. Сразу удаляем секрет из базы данных
+                await database.ref(`secrets/${secretId}`).remove();
+
+                // 3. Расшифровываем данные
+                const keyBuffer = base64ToBuffer(keyBase64);
+                const key = await crypto.subtle.importKey('raw', keyBuffer, { name: 'AES-GCM' }, true, ['decrypt']);
+                const decryptedText = await decryptData(encryptedPayload, key);
+
+                // 4. Показываем секрет
+                loadingText.classList.add('hidden');
+                revealedSecretDiv.textContent = decryptedText;
+                copySecretBtn.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Ошибка при чтении секрета:", error);
+                revealedSecretDiv.textContent = 'Ошибка! Не удалось расшифровать или прочитать этот секрет. Возможно, ссылка повреждена или неактуальна.';
+            }
+        }
+
+        // Функция копирования в буфер обмена
+        function copyToClipboard(text, button, originalText) {
+            navigator.clipboard.writeText(text).then(() => {
+                button.textContent = 'Скопировано!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('Не удалось скопировать:', err);
+                alert('Не удалось скопировать текст.');
+            });
+        }
+
+        // Назначаем обработчики событий
+        createBtn.addEventListener('click', handleCreateSecret);
+        copyLinkBtn.addEventListener('click', () => copyToClipboard(generatedLinkInput.value, copyLinkBtn, 'Копировать ссылку'));
+        copySecretBtn.addEventListener('click', () => copyToClipboard(revealedSecretDiv.textContent, copySecretBtn, 'Копировать секрет'));
+
+        // При загрузке страницы проверяем, нужно ли отображать секрет
+        window.addEventListener('load', handleRevealSecret);
+    </script>
 </body>
 </html>
