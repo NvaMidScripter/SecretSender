@@ -160,3 +160,26 @@ copySecretBtn.addEventListener('click', () => copyToClipboard(revealedSecretDiv.
 
 // При загрузке страницы проверяем, нужно ли отображать секрет
 window.addEventListener('load', handleRevealSecret);
+
+document.getElementById('share-login-btn').onclick = () => {
+    showSection('login-section');
+};
+document.getElementById('share-text-btn').onclick = () => {
+    showSection('text-section');
+};
+document.getElementById('share-file-btn').onclick = () => {
+    showSection('file-section');
+};
+
+function showSection(id) {
+    ['login-section', 'text-section', 'file-section', 'link-section'].forEach(sec => {
+        document.getElementById(sec).classList.add('hidden');
+    });
+    document.getElementById(id).classList.remove('hidden');
+}
+
+// Blur toggle for password
+const passwordInput = document.getElementById('password-input');
+document.getElementById('toggle-blur-btn').onclick = () => {
+    passwordInput.classList.toggle('blurred');
+};
