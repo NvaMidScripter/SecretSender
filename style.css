@@ -64,3 +64,6 @@ button:hover {
 #copy-secret-btn:hover, #copy-link-btn:hover {
     background-color: #36a420;
 }
+#password-input.blurred {
+    filter: blur(5px);
+}
